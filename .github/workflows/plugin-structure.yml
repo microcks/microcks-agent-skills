@@ -53,9 +53,9 @@ jobs:
               errors=$((errors + 1))
             fi
 
-            # LICENSE is required
-            if [ ! -f "${plugin_dir}LICENSE" ]; then
-              echo "::error file=plugins/${plugin}/LICENSE::Plugin '${plugin}' is missing LICENSE"
+            # LICENSE is required (symlink to root LICENSE or plain file)
+            if [ ! -e "${plugin_dir}LICENSE" ]; then
+              echo "::error file=plugins/${plugin}/LICENSE::Plugin '${plugin}' is missing LICENSE (use a symlink: ln -s ../../LICENSE LICENSE)"
               errors=$((errors + 1))
             fi
 

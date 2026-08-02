@@ -60,8 +60,14 @@ Every plugin **must** contain:
 |------|---------|
 | `plugin.json` | Plugin manifest: name, version, description, skill paths |
 | `README.md` | Human-readable description + skills table |
-| `LICENSE` | Apache 2.0 (copy from an existing plugin) |
+| `LICENSE` | Symlink to the root `LICENSE` — **never copy** |
 | `skills/<skill>/SKILL.md` | At least one skill with a `Use when…` trigger line |
+
+Create the `LICENSE` symlink with:
+
+```bash
+ln -s ../../LICENSE plugins/<your-plugin-name>/LICENSE
+```
 
 ### 3. Register the plugin in all marketplace.json files
 

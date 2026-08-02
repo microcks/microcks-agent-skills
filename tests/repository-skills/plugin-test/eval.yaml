@@ -1,0 +1,53 @@
+name: plugin-test
+description: Validates the repository-local plugin test authoring skill.
+type: capability
+defaults:
+  timeout: 2m
+  runs: 3
+stimuli:
+  - name: Create outcome-focused skill evidence
+    prompt: |
+      Add external tests for the directly invocable `contract-testing` skill in
+      the `microcks` plugin. The tests need fixtures, deterministic checks, and
+      semantic outcome criteria, but must not become part of the installed plugin.
+    graders:
+      - type: output-contains
+        config:
+          substring: tests/microcks/contract-testing/eval.yaml
+      - type: output-contains
+        config:
+          substring: fixtures/
+      - type: prompt
+    rubric:
+      - Places the specification and fixtures outside the distributable plugin.
+      - Uses deterministic checks before semantic outcome criteria.
+      - Keeps assertions broad enough for alternative valid approaches.
+
+  - name: Test a clear non-activation boundary
+    prompt: |
+      The `contract-testing` workflow only applies to published API contracts.
+      Create an evaluation scenario for a user asking to refactor an internal
+      database helper. The test must prove the workflow does not take over this
+      unrelated request and gives a useful next step.
+    graders:
+      - type: output-contains
+        config:
+          substring: "expect_activation: false"
+      - type: prompt
+    rubric:
+      - Uses a natural user request that does not name the target skill.
+      - Tests recognition of the out-of-scope request, restraint, and redirection independently.
+      - Does not prescribe a target-specific command, flag, or vocabulary.
+
+  - name: Avoid an overfitted rubric
+    prompt: |
+      Review an evaluation rubric that requires an agent to invoke a particular
+      diagnostic command with an exact flag. Replace it with evidence that accepts
+      any valid approach while still proving the developer receives the correct
+      diagnosis and remediation.
+    graders:
+      - type: prompt
+    rubric:
+      - Replaces technique-specific grading with outcome-focused evidence.
+      - Keeps the corrected rubric independently evaluable.
+      - Does not require the agent to repeat instruction wording.

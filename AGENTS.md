@@ -13,7 +13,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing repository structure, 
 - Keep repository-only developer skills under `.agents/skills/`; never register them as marketplace plugins.
 - Keep plugin evaluation specifications and fixtures outside distributable plugin content under `tests/<plugin-name>/<skill-name>/`.
 
-The existing CI workflows enforce plugin structure, marketplace synchronization, and README registration. Use the local `marketplace-authoring` skill when creating or evolving a plugin, skill, agent, or its evaluation specification.
+The existing CI workflows enforce plugin structure, marketplace synchronization, and README registration. Use the local `plugin-authoring` skill when creating or evolving a plugin, skill, agent, or its evaluation specification. Use `plugin-test` to create or review external evaluation scenarios and fixtures.
 
 ## Repository-local skills
 

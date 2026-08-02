@@ -76,7 +76,7 @@ The `.agents/skills/` directory is separate from `plugins/`. It contains skills 
 
 Third-party repository skills are installed and updated with APM. The `apm.yml` manifest declares sources and `apm.lock.yaml` pins their resolved revisions. Both files are committed so that agent capabilities are reproducible for every contributor.
 
-Repository-authored developer skills belong in the same directory but are not APM dependencies. The `marketplace-authoring` skill is one such local skill: it is the public coordinator for creating plugins, skills, agents, and their evaluation specifications. It composes internal artifact-contract, evaluation-design, and delivery-report skills so that artifact rules, evidence design, and reporting stay independently maintainable. None of these local skills may appear in a marketplace manifest.
+Repository-authored developer skills belong in the same directory but are not APM dependencies. The `plugin-authoring` skill is one such local skill: it is the public coordinator for creating plugins, skills, agents, and their evaluation specifications. It composes the APM-managed `skill-creator` workflow with internal plugin-contract and plugin-delivery-report skills. The separately invocable `plugin-test` skill creates and reviews external evaluation scenarios and fixtures. This keeps authoring guidance, distribution rules, test design, and reporting independently maintainable. None of these local skills may appear in a marketplace manifest.
 
 ## Validation architecture
 
@@ -94,7 +94,7 @@ These checks are intentionally deterministic. They run without model credentials
 
 ### Direction
 
-The target evaluation model follows the structural principles of the Vally approach used by `dotnet/skills`, but is introduced incrementally. The repository-local `marketplace-authoring` skill helps contributors create evaluation specifications outside the distributable plugin package:
+The target evaluation model follows the structural principles of the Vally approach used by `dotnet/skills`, but is introduced incrementally. The repository-local `plugin-test` skill helps contributors create evaluation specifications outside the distributable plugin package:
 
 ```text
 tests/<plugin-name>/<skill-name>/eval.yaml
@@ -105,7 +105,7 @@ Keeping evaluations under `tests/` has two benefits:
 1. Marketplace installations include only the plugin content needed at runtime.
 2. Test fixtures, prompts, graders, and experimental results evolve without changing the installed artifact boundary.
 
-The `marketplace-authoring` skill itself is a repository developer tool, not a marketplace plugin. Its own specification is stored under `tests/repository-skills/marketplace-authoring/eval.yaml`; it is deliberately outside the plugin evaluation namespace.
+The `plugin-authoring` and `plugin-test` skills are repository developer tools, not marketplace plugins. Their own specifications are stored under `tests/repository-skills/plugin-authoring/eval.yaml` and `tests/repository-skills/plugin-test/eval.yaml`; they are deliberately outside the plugin evaluation namespace.
 
 ### Phased adoption
 

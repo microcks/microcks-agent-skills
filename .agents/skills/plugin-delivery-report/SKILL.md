@@ -1,18 +1,18 @@
 ---
-name: marketplace-delivery-report
-description: "Produce the final scope, evidence, validation, and runtime-status report for a marketplace authoring change. Used by marketplace-authoring after applicable checks finish."
+name: plugin-delivery-report
+description: "Produce the final scope, evidence, validation, and runtime-status report for a plugin authoring change. Used by plugin-authoring after applicable checks finish."
 user-invocable: false
 allowed-tools: Read
 ---
 
-# Marketplace delivery report
+# Plugin delivery report
 
-Produce the final concise delivery report after the coordinator has completed the applicable artifact and evidence checks. Report facts only; do not infer a passing result from an unrun command.
+Produce the final concise delivery report after the coordinator completes the applicable artifact and evidence checks. Report facts only; do not infer a passing result from an unrun command.
 
 ## Required structure
 
 ```markdown
-## Marketplace change
+## Plugin change
 
 ### Scope
 - Target: <plugin | skill | agent | evaluation>
@@ -41,4 +41,4 @@ Produce the final concise delivery report after the coordinator has completed th
 - State why evidence is not applicable rather than silently omitting it.
 - Identify a failed or skipped validation explicitly.
 - Do not claim model-backed execution, credentials, artifacts, or comparison results unless they exist.
-- Keep the report focused on the requested change; do not propose unrelated repository work.
+- Keep the report focused on the requested change.

@@ -1,0 +1,113 @@
+name: marketplace-sync
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - '.agents/marketplace.json'
+      - '.claude-plugin/marketplace.json'
+      - '.github/plugin/marketplace.json'
+      - '.github/workflows/marketplace-sync.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - '**marketplace.json'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sync-check:
+    name: Verify marketplace.json files are in sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check every plugin is registered in all marketplace.json files
+        shell: bash
+        run: |
+          errors=0
+
+          MARKETPLACE_FILES=(
+            ".agents/marketplace.json"
+            ".claude-plugin/marketplace.json"
+            ".github/plugin/marketplace.json"
+          )
+
+          # Collect all plugin directory names
+          plugin_dirs=()
+          if [ -d "plugins" ]; then
+            for d in plugins/*/; do
+              [ -d "$d" ] && plugin_dirs+=("$(basename "$d")")
+            done
+          fi
+
+          if [ "${#plugin_dirs[@]}" -eq 0 ]; then
+            echo "::notice::No plugin directories found under plugins/. Skipping."
+            exit 0
+          fi
+
+          echo "Found plugins: ${plugin_dirs[*]}"
+
+          # For each marketplace file, check all plugins are listed
+          for marketplace in "${MARKETPLACE_FILES[@]}"; do
+            if [ ! -f "$marketplace" ]; then
+              echo "::error file=${marketplace}::Marketplace file '${marketplace}' is missing"
+              errors=$((errors + 1))
+              continue
+            fi
+
+            for plugin in "${plugin_dirs[@]}"; do
+              if ! grep -q "\"${plugin}\"" "$marketplace"; then
+                echo "::error file=${marketplace}::Plugin '${plugin}' is not registered in ${marketplace}"
+                errors=$((errors + 1))
+              fi
+            done
+
+            echo "✓ ${marketplace} checked"
+          done
+
+          # Check that all three marketplace files list the same plugin names
+          echo "Checking cross-marketplace consistency..."
+          reference="${MARKETPLACE_FILES[0]}"
+          ref_plugins=$(python3 -c "
+          import json, sys
+          with open('$reference') as f:
+              data = json.load(f)
+          names = sorted(p['name'] for p in data.get('plugins', []))
+          print('\n'.join(names))
+          " 2>/dev/null || echo "")
+
+          for marketplace in "${MARKETPLACE_FILES[@]:1}"; do
+            [ ! -f "$marketplace" ] && continue
+            other_plugins=$(python3 -c "
+          import json, sys
+          with open('$marketplace') as f:
+              data = json.load(f)
+          names = sorted(p['name'] for p in data.get('plugins', []))
+          print('\n'.join(names))
+          " 2>/dev/null || echo "")
+            if [ "$ref_plugins" != "$other_plugins" ]; then
+              echo "::error file=${marketplace}::Plugin list in '${marketplace}' differs from '${reference}'"
+              echo "  Expected: $(echo "$ref_plugins" | tr '\n' ' ')"
+              echo "  Got:      $(echo "$other_plugins" | tr '\n' ' ')"
+              errors=$((errors + 1))
+            else
+              echo "✓ ${marketplace} is consistent with ${reference}"
+            fi
+          done
+
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::${errors} marketplace sync error(s). See above for details."
+            exit 1
+          fi
+
+          echo "All marketplace.json files are in sync."

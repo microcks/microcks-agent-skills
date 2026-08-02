@@ -1,0 +1,93 @@
+name: plugin-structure
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - '.github/workflows/plugin-structure.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate plugin structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate each plugin directory
+        shell: bash
+        run: |
+          errors=0
+
+          if [ ! -d "plugins" ]; then
+            echo "::notice::No plugins/ directory found, skipping."
+            exit 0
+          fi
+
+          for plugin_dir in plugins/*/; do
+            [ -d "$plugin_dir" ] || continue
+            plugin=$(basename "$plugin_dir")
+
+            # plugin.json is required
+            if [ ! -f "${plugin_dir}plugin.json" ]; then
+              echo "::error file=plugins/${plugin}/plugin.json::Plugin '${plugin}' is missing plugin.json"
+              errors=$((errors + 1))
+            fi
+
+            # README.md is required
+            if [ ! -f "${plugin_dir}README.md" ]; then
+              echo "::error file=plugins/${plugin}/README.md::Plugin '${plugin}' is missing README.md"
+              errors=$((errors + 1))
+            fi
+
+            # LICENSE is required
+            if [ ! -f "${plugin_dir}LICENSE" ]; then
+              echo "::error file=plugins/${plugin}/LICENSE::Plugin '${plugin}' is missing LICENSE"
+              errors=$((errors + 1))
+            fi
+
+            # At least one of skills/ or agents/ must exist
+            has_skills=false
+            has_agents=false
+            [ -d "${plugin_dir}skills" ] && has_skills=true
+            [ -d "${plugin_dir}agents" ] && has_agents=true
+
+            if [ "$has_skills" = "false" ] && [ "$has_agents" = "false" ]; then
+              echo "::error::Plugin '${plugin}' must have at least a skills/ or agents/ directory"
+              errors=$((errors + 1))
+            fi
+
+            # Each skill sub-directory must contain a SKILL.md
+            if [ "$has_skills" = "true" ]; then
+              for skill_dir in "${plugin_dir}skills"/*/; do
+                [ -d "$skill_dir" ] || continue
+                skill=$(basename "$skill_dir")
+                if [ ! -f "${skill_dir}SKILL.md" ]; then
+                  echo "::error::Plugin '${plugin}' — skill '${skill}' is missing SKILL.md"
+                  errors=$((errors + 1))
+                fi
+              done
+            fi
+
+            echo "✓ Plugin '${plugin}' structure is valid"
+          done
+
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::${errors} structure error(s) found. See above for details."
+            exit 1
+          fi
+
+          echo "All plugin structures are valid."

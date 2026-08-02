@@ -1,0 +1,65 @@
+name: readme-plugins
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'README.md'
+      - '.agents/marketplace.json'
+      - '.github/workflows/readme-plugins.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'README.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Verify README lists all plugins
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check each plugin is mentioned in README.md
+        shell: bash
+        run: |
+          errors=0
+
+          if [ ! -f "README.md" ]; then
+            echo "::error::README.md is missing at the repository root"
+            exit 1
+          fi
+
+          if [ ! -d "plugins" ]; then
+            echo "::notice::No plugins/ directory found. Skipping."
+            exit 0
+          fi
+
+          for plugin_dir in plugins/*/; do
+            [ -d "$plugin_dir" ] || continue
+            plugin=$(basename "$plugin_dir")
+
+            if ! grep -q "${plugin}" README.md; then
+              echo "::error file=README.md::Plugin '${plugin}' is not mentioned in README.md"
+              errors=$((errors + 1))
+            else
+              echo "✓ Plugin '${plugin}' found in README.md"
+            fi
+          done
+
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::${errors} plugin(s) are missing from README.md. Add them to the plugins table."
+            exit 1
+          fi
+
+          echo "README.md lists all plugins."

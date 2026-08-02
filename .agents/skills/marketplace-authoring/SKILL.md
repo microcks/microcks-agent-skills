@@ -2,9 +2,9 @@
 name: marketplace-authoring
 description: "Create, extend, review, or repair this repository's marketplace plugins, plugin skills, custom agents, and external evaluation specifications. Use when a contributor asks to add a plugin, create or revise a SKILL.md, define an agent, register marketplace content, or add eval.yaml scenarios and fixtures."
 skills:
-	- marketplace-artifact-contract
-	- marketplace-evaluation-design
-	- marketplace-delivery-report
+  - marketplace-artifact-contract
+  - marketplace-evaluation-design
+  - marketplace-delivery-report
 allowed-tools: Read, Grep, Glob, Edit, Write
 ---
 

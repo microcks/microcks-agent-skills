@@ -165,5 +165,6 @@ Until that workflow exists, static validation remains the required quality gate 
 ## Contributor navigation
 
 - For day-to-day plugin creation and updates, follow [AGENTS.md](./AGENTS.md).
+- For local skill usage and end-to-end contributor paths, follow [Developer workflows](./docs/developer-workflows.md).
 - For the public plugin list and installation instructions, use [README.md](./README.md).
 - For repository contribution practices, use [CONTRIBUTING.md](./CONTRIBUTING.md).

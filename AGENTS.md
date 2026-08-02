@@ -15,6 +15,8 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing repository structure, 
 
 The existing CI workflows enforce plugin structure, marketplace synchronization, and README registration. Use the local `plugin-authoring` skill when creating or evolving a plugin, skill, agent, or its evaluation specification. Use `plugin-test` to create or review external evaluation scenarios and fixtures.
 
+See [Developer workflows](./docs/developer-workflows.md) for the purpose of each local skill and the end-to-end contributor workflow.
+
 ## Repository-local skills
 
 Use APM for third-party developer skills:

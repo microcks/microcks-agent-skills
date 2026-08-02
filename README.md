@@ -42,4 +42,5 @@ Then type `/plugins` in Copilot Chat to browse and install plugins.
 ## Contributing
 
 See [AGENTS.md](./AGENTS.md) for the plugin structure conventions and how to add a new plugin.
+See [Developer workflows](./docs/developer-workflows.md) for how contributors use the local authoring and evaluation skills.
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the contribution workflow.

@@ -4,6 +4,10 @@ type: capability
 defaults:
   timeout: 2m
   runs: 3
+environment:
+  files:
+    - src: fixtures/pets-api.yaml
+      dest: fixtures/pets-api.yaml
 stimuli:
   - name: Create importable examples from an API contract
     prompt: |

@@ -178,6 +178,7 @@ coverage*.info
 
 # Visual Studio code coverage results
 *.coverage
+eval-results/
 *.coveragexml
 
 # NCrunch
@@ -431,3 +432,8 @@ FodyWeavers.xsd
 
 # APM dependencies
 apm_modules/
+
+# Vally
+session-state/
+evals-results/
+.copilot-tracking/

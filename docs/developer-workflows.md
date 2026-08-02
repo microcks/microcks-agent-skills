@@ -120,7 +120,18 @@ $$
 \text{trials} = \text{number of stimuli} \times \text{runs per stimulus}
 $$
 
-Use at least five trials before making a comparison verdict. Runtime evaluation remains a maintainer-controlled phase; current pull-request checks are deterministic and credential-free.
+Use at least five trials before making a comparison verdict. Pull-request checks remain deterministic and credential-free. Contributors can run the local Vally pilot with [eng/run-skill-evals.sh](../eng/run-skill-evals.sh); it requires local Copilot authentication and keeps generated output under the Git-ignored `eval-results/` directory.
+
+### Run a local comparison
+
+The runner compares a skill-free baseline with a run that loads only the target skill. It then uses Vally's position-swapped `compare` command to write a per-skill `results.json` verdict. Start with a dry run, then execute the narrowed evaluation:
+
+```sh
+./eng/run-skill-evals.sh plugin1 skill1 --dry-run
+./eng/run-skill-evals.sh plugin1 skill1
+```
+
+It also accepts a plugin name to test that plugin's evaluated skills, or no arguments to run every evaluation. A comparison with insufficient or incomplete evidence is reported as inconclusive rather than as a regression. See [eng/README.md](../eng/README.md) for prerequisites, configuration overrides, and output locations.
 
 ## Validate before requesting review
 

@@ -125,7 +125,7 @@ flowchart LR
 |-------|-------|--------------|
 | Static contract | Require a valid external evaluation specification and validate it without a model. | Required |
 | Authoring guidance | Define scenario, fixture, grader, and non-hijacking conventions. | Required with the static contract |
-| Local pilot | Run a pinned Vally CLI manually and preserve raw artifacts for inspection. | Advisory |
+| Local pilot | Run the pinned Vally CLI with [eng/run-skill-evals.sh](./eng/run-skill-evals.sh) and preserve raw artifacts for inspection. | Advisory |
 | Runtime evaluation | Compare a baseline with a target skill and optionally the complete plugin. | Advisory until stable |
 | Trusted PR automation | Run model-backed evaluations only from a maintainer-approved, SHA-bound request with scoped credentials. | Future decision |
 
@@ -160,7 +160,7 @@ Model-backed evaluation is not a normal pull-request command. It requires creden
 - validate derived plugin, skill, and fixture paths before using them;
 - retain raw artifacts so timeouts and harness failures are not misreported as skill regressions.
 
-Until that workflow exists, static validation remains the required quality gate and model execution remains an explicit local or maintainer-controlled pilot.
+Until that workflow exists, static validation remains the required quality gate and model execution remains an explicit local or maintainer-controlled pilot. The local runner provides the same skill-free baseline versus isolated-skill comparison model as `dotnet/skills`; it adapts each completed run into a Vally `compare` verdict at `eval-results/<plugin>/<skill>/results.json`. The verdict uses the direction of paired wins and losses with an exact one-sided sign test, reporting insufficient or incomplete evidence as inconclusive. Generated output remains ignored and is not a pull-request requirement.
 
 ## Contributor navigation
 

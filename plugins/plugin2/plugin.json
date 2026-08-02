@@ -1,0 +1,6 @@
+{
+  "name": "plugin2",
+  "version": "0.1.0",
+  "description": "Plugin 2 placeholder — replace with your plugin description.",
+  "skills": ["./skills/"]
+}

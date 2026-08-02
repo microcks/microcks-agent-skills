@@ -3,6 +3,10 @@
 This repository is a marketplace of AI agent skills and plugins for working with [Microcks](https://microcks.io/).
 All plugins live under `plugins/`. Each subdirectory is an independent, installable plugin.
 
+## Architecture reference
+
+Read [ARCHITECTURE.md](./ARCHITECTURE.md) for the marketplace topology, ownership of CI checks, license-link policy, APM boundary, and the planned Vally-inspired evaluation architecture. This file contains the operational contributor rules.
+
 ## Repository structure
 
 ```

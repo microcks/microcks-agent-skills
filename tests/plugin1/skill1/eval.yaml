@@ -1,0 +1,56 @@
+name: skill1
+description: Evaluates generation and import guidance for contract-derived API examples.
+type: capability
+defaults:
+  timeout: 2m
+  runs: 3
+stimuli:
+  - name: Create importable examples from an API contract
+    prompt: |
+      The attached `fixtures/pets-api.yaml` contract describes a pet adoption API.
+      Create realistic request and response examples for both operations, including
+      an available and an adopted pet. Explain how I can make the resulting examples
+      available in my running Microcks instance.
+    graders:
+      - type: output-contains
+        config:
+          substring: Microcks
+      - type: output-contains
+        config:
+          substring: available
+      - type: prompt
+    rubric:
+      - Produces examples that are compatible with the supplied API contract.
+      - Covers both retrieval and creation behavior with representative states.
+      - Gives a concrete route for importing or publishing the examples in Microcks.
+
+  - name: Explain contract conformance for generated data
+    prompt: |
+      I have an API contract with required properties and enumerated values. Before
+      publishing mock examples, what should I check so that generated request and
+      response data remains valid for consumers of the API?
+    graders:
+      - type: output-contains
+        config:
+          substring: required
+      - type: prompt
+    rubric:
+      - Identifies that generated data must conform to the contract schema.
+      - Covers required fields, data types, and constrained values without assuming a single validation tool.
+      - Gives actionable guidance for correcting invalid examples.
+
+  - name: Decline an unsupported contract format
+    prompt: |
+      I only have a GraphQL schema for a new service. Generate mock request and
+      response examples from it and import them into Microcks in the same way as an
+      API description file.
+    expect_activation: false
+    graders:
+      - type: output-contains
+        config:
+          substring: GraphQL
+      - type: prompt
+    rubric:
+      - Recognizes that the available input is outside the supported API contract formats.
+      - Does not pretend to generate compatible artifacts from the unsupported schema.
+      - Suggests an appropriate next step, such as providing a supported contract format.

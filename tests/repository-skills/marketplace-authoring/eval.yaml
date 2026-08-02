@@ -1,0 +1,112 @@
+name: marketplace-authoring
+description: Validates the repository-local marketplace authoring skill.
+type: capability
+defaults:
+  timeout: 2m
+  runs: 3
+stimuli:
+  - name: Create a complete plugin
+    prompt: |
+      Create a new `mocking` plugin with one `mock-service` skill. Explain every
+      repository artifact that must be created or updated so the plugin can be
+      installed from each marketplace.
+    graders:
+      - type: output-contains
+        config:
+          substring: plugins/mocking/plugin.json
+      - type: output-contains
+        config:
+          substring: .agents/marketplace.json
+      - type: output-contains
+        config:
+          substring: ../../LICENSE
+      - type: prompt
+    rubric:
+      - Creates a plugin structure, marketplace registration, and root README entry.
+      - Keeps developer-only tooling out of the installable plugin.
+      - Describes the required license symbolic link rather than a copied license.
+
+  - name: Extend an existing plugin with an agent
+    prompt: |
+      Add a `contract-reviewer` agent to the existing `microcks` plugin. Explain
+      how to decide whether an agent is appropriate, where its definition belongs,
+      and which existing plugin artifacts must be reviewed or updated. Keep the
+      change inside the existing plugin unless a real boundary requires otherwise.
+    graders:
+      - type: output-contains
+        config:
+          substring: plugins/microcks/agents/contract-reviewer.agent.md
+      - type: output-contains
+        config:
+          substring: plugin.json
+      - type: prompt
+    rubric:
+      - Uses an agent only for isolated context, a distinct role, or different tool boundaries.
+      - Keeps the new behavior in the existing plugin instead of creating an unrelated plugin.
+      - Reviews the plugin manifest and README before changing published content.
+
+  - name: Add evidence for a directly invocable skill
+    prompt: |
+      Add evidence for the `contract-testing` skill in the `microcks` plugin.
+      The evidence must remain outside the installable plugin and include
+      deterministic checks plus a semantic correctness rubric.
+    graders:
+      - type: output-contains
+        config:
+          substring: tests/microcks/contract-testing/eval.yaml
+      - type: output-contains
+        config:
+          substring: "defaults:"
+      - type: prompt
+    rubric:
+      - Places the specification under tests rather than inside the plugin package.
+      - Uses deterministic graders before a semantic rubric.
+      - Keeps runtime model execution separate from static validation.
+
+  - name: Add a skill without moving test material into the plugin
+    prompt: |
+      Add a directly invocable `validate-contract` skill to the existing `microcks`
+      plugin. Describe its frontmatter and workflow requirements, the external
+      evaluation location, and the positive, boundary, and non-hijacking scenarios
+      needed to prove it behaves correctly.
+    graders:
+      - type: output-contains
+        config:
+          substring: plugins/microcks/skills/validate-contract/SKILL.md
+      - type: output-contains
+        config:
+          substring: tests/microcks/validate-contract/eval.yaml
+      - type: prompt
+    rubric:
+      - Gives the skill a trigger-oriented description and an observable outcome.
+      - Keeps the evaluation and any fixtures outside the distributable plugin.
+      - Designs relevant positive, boundary, and non-hijacking scenarios.
+
+  - name: Keep a documentation-only change focused
+    prompt: |
+      A contributor asks how to update the root plugin README table. Do not add
+      evaluation files, a new plugin, or a new agent unless they are relevant.
+    graders:
+      - type: prompt
+    rubric:
+      - Keeps the response focused on updating the README table.
+      - Does not add unrelated repository artifacts or request model credentials.
+
+  - name: Keep repository-local tooling private
+    prompt: |
+      Improve the repository-local `marketplace-authoring` developer workflow. It
+      should coordinate small internal responsibilities for artifact contracts,
+      external evidence, and delivery reporting. Explain where those pieces belong
+      and what must not be registered in a marketplace.
+    graders:
+      - type: output-contains
+        config:
+          substring: .agents/skills/marketplace-authoring/SKILL.md
+      - type: output-contains
+        config:
+          substring: .agents/skills/
+      - type: prompt
+    rubric:
+      - Keeps the public coordinator and its internal supporting skills under the repository-local skills directory.
+      - Does not add repository-local developer tooling to plugin manifests, marketplace manifests, or the public plugin catalogue.
+      - Separates artifact contracts, evidence design, and delivery reporting into focused responsibilities.

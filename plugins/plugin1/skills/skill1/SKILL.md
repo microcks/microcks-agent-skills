@@ -1,3 +1,8 @@
+---
+name: skill1
+description: Generate representative API examples from an OpenAPI or AsyncAPI contract for Microcks.
+---
+
 # generate-apiexamples
 
 Use when you need to generate representative API examples (request/response pairs, or message examples) from an existing OpenAPI or AsyncAPI contract and make them available in a Microcks instance.

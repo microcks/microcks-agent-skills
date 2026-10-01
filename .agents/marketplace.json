@@ -11,11 +11,6 @@
       "name": "plugin1",
       "source": "./plugins/plugin1",
       "description": "Plugin 1 placeholder — replace with your plugin description."
-    },
-    {
-      "name": "plugin2",
-      "source": "./plugins/plugin2",
-      "description": "Plugin 2 placeholder — replace with your plugin description."
     }
   ]
 }

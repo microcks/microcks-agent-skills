@@ -7,7 +7,6 @@ A marketplace of AI agent skills and plugins to ease your life working with [Mic
 | Plugin | Description |
 |--------|-------------|
 | [plugin1](./plugins/plugin1) | Plugin 1 placeholder — replace with your plugin description. |
-| [plugin2](./plugins/plugin2) | Plugin 2 placeholder — replace with your plugin description. |
 
 ## Installation
 

@@ -1,0 +1,13 @@
+{
+  "name": "microcks-agent-skills",
+  "owner": {
+    "name": "Microcks"
+  },
+  "plugins": [
+    {
+      "name": "plugin1",
+      "source": "./plugins/plugin1",
+      "description": "Plugin 1 placeholder — replace with your plugin description."
+    }
+  ]
+}

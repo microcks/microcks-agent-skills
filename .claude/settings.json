@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "microcks-agent-skills": {
+      "source": {
+        "source": "directory",
+        "path": "./"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "plugin1@microcks-agent-skills": true
+  }
+}

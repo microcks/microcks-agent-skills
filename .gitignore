@@ -178,6 +178,7 @@ coverage*.info
 
 # Visual Studio code coverage results
 *.coverage
+eval-results/
 *.coveragexml
 
 # NCrunch
@@ -418,6 +419,10 @@ FodyWeavers.xsd
 # Local History for Visual Studio Code
 .history/
 
+# Machine-specific agent plugin settings (absolute file:// marketplace paths)
+.claude/settings.local.json
+.github/copilot/settings.local.json
+
 # Built Visual Studio Code Extensions
 *.vsix
 
@@ -427,3 +432,12 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+
+# APM dependencies
+apm_modules/
+
+# Vally
+session-state/
+evals-results/
+.copilot-tracking/

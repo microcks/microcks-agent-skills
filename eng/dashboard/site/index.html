@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Microcks agent plugins, skills, static quality, and evaluation results.">
+  <title>Microcks Agent Skills</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav" aria-label="Primary navigation">
+      <a class="brand" href="./">Microcks <span>Agent Skills</span></a>
+      <a href="https://github.com/microcks/microcks-agent-skills">GitHub</a>
+    </nav>
+    <div class="hero-content">
+      <p class="eyebrow">Marketplace quality dashboard</p>
+      <h1>Skills that make API workflows <em>reliable.</em></h1>
+      <p class="lead">Explore installable Microcks plugins, their static quality profile, evaluation coverage, and evidence from controlled skill-versus-baseline runs.</p>
+    </div>
+  </header>
+
+  <main>
+    <section id="summary" class="summary" aria-label="Repository summary"></section>
+
+    <section class="catalog-heading">
+      <div>
+        <p class="eyebrow">Catalogue</p>
+        <h2>Plugins and skills</h2>
+      </div>
+      <label class="search">
+        <span>Search</span>
+        <input id="search" type="search" placeholder="Plugin, skill, description…" autocomplete="off">
+      </label>
+    </section>
+
+    <div id="status" class="status" role="status">Loading catalogue…</div>
+    <section id="catalog" class="catalog" aria-live="polite"></section>
+  </main>
+
+  <footer>
+    <p>Generated from repository contracts and maintainer-approved Vally evaluations. No data is not a passing result.</p>
+  </footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

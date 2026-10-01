@@ -419,6 +419,10 @@ FodyWeavers.xsd
 # Local History for Visual Studio Code
 .history/
 
+# Machine-specific agent plugin settings (absolute file:// marketplace paths)
+.claude/settings.local.json
+.github/copilot/settings.local.json
+
 # Built Visual Studio Code Extensions
 *.vsix
 

@@ -1,0 +1,563 @@
+name: validation
+
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+      - '.agents/marketplace.json'
+      - '.claude-plugin/marketplace.json'
+      - '.github/plugin/marketplace.json'
+      - '.github/workflows/validation.yml'
+      - 'eng/**'
+      - 'microcks-agent-skills.experiment.yaml'
+      - 'README.md'
+      - 'ARCHITECTURE.md'
+      - 'AGENTS.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/**'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/**'
+      - 'tests/**'
+      - '.agents/marketplace.json'
+      - '.claude-plugin/marketplace.json'
+      - '.github/plugin/marketplace.json'
+      - '.github/workflows/validation.yml'
+      - 'eng/**'
+      - 'microcks-agent-skills.experiment.yaml'
+      - 'README.md'
+      - 'ARCHITECTURE.md'
+      - 'AGENTS.md'
+      - 'CONTRIBUTING.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Reviewed 40-character commit SHA to evaluate'
+        required: true
+        type: string
+      plugin:
+        description: 'Optional plugin directory name'
+        required: false
+        type: string
+      skill:
+        description: 'Optional skill directory name; requires plugin'
+        required: false
+        type: string
+  # Maintainers request a Vally evaluation with `/evals [plugin] [skill]` on a pull request.
+  issue_comment:
+    types: [created]
+
+# Evaluation runs are never cancelled by later comments or pushes.
+concurrency:
+  group: >-
+    ${{ github.event_name == 'issue_comment' && format('validation-comment-{0}', github.event.comment.id) ||
+        github.event_name == 'workflow_dispatch' && format('validation-dispatch-{0}', github.run_id) ||
+        format('validation-{0}', github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+
+permissions:
+  contents: read
+
+jobs:
+  static-validation:
+    name: Static validation
+    if: github.event_name != 'issue_comment'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate requested commit
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          [[ "$REF" =~ ^[0-9a-fA-F]{40}$ ]] || {
+            echo "ref must be a 40-character commit SHA." >&2
+            exit 2
+          }
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install validation dependencies
+        run: npm ci --prefix eng/validation
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run every deterministic check
+        shell: bash
+        run: |
+          set +e
+          failures=0
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_REF="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            BASE_REF="${{ github.event.before }}"
+          else
+            BASE_REF="${{ inputs.ref }}^"
+          fi
+
+          run_check() {
+            local name="$1"
+            shift
+            echo "::group::$name"
+            "$@"
+            local exit_code=$?
+            echo "::endgroup::"
+            if (( exit_code != 0 )); then
+              echo "::error::$name failed with exit code $exit_code"
+              failures=1
+            fi
+          }
+
+          run_check "Repository contracts" bash eng/validate.sh --base-ref "$BASE_REF" --report artifacts/validation/report.json
+          run_check "Repository contract validator tests" bash eng/validate.test.sh
+          run_check "Vally runner tests" bash eng/run-skill-evals.test.sh
+          run_check "Vally adapter tests" node --test eng/vally-adapter/adapt.test.mjs eng/vally-adapter/eval-request.test.mjs eng/vally-adapter/pr-comment.test.mjs
+          run_check "PR comment helper tests" bash eng/vally-adapter/upsert-pr-comment.test.sh
+          run_check "Dashboard build" node eng/dashboard/build.mjs --report artifacts/validation/report.json --output artifacts/dashboard
+
+          exit "$failures"
+
+      - name: Write static quality summary
+        if: always()
+        run: |
+          if [[ ! -f artifacts/validation/report.json ]]; then
+            exit 0
+          fi
+          node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const report = require('./artifacts/validation/report.json');
+          const s = report.summary;
+          console.log('## Repository quality');
+          console.log('');
+          console.log(`- Plugins: **${s.plugins}**`);
+          console.log(`- Skills: **${s.skills}**`);
+          console.log(`- Evaluation specifications: **${s.evals}**`);
+          console.log(`- Blocking errors: **${s.blockingErrors}**`);
+          console.log(`- Grandfathered errors: **${s.grandfatheredErrors}**`);
+          console.log(`- Quality warnings: **${s.warnings}**`);
+          NODE
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-validation-${{ github.sha }}
+          path: |
+            artifacts/validation/report.json
+            artifacts/dashboard/
+          if-no-files-found: warn
+          retention-days: 14
+
+  eval-request:
+    name: Evaluation request
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/evals') &&
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      run: ${{ steps.request.outputs.run }}
+      sha: ${{ steps.request.outputs.sha }}
+      plugin: ${{ steps.request.outputs.plugin }}
+      skill: ${{ steps.request.outputs.skill }}
+      scope: ${{ steps.request.outputs.scope }}
+      pr: ${{ steps.request.outputs.pr }}
+    steps:
+      - name: Checkout trusted workflow revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve and authorize request
+        id: request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_PLUGIN: ${{ inputs.plugin }}
+          INPUT_SKILL: ${{ inputs.skill }}
+        run: |
+          set -euo pipefail
+          NAME='^[A-Za-z0-9][A-Za-z0-9-]*$'
+
+          skip() {
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          reply() {
+            printf '@%s %s\n' "$COMMENTER" "$1" > "$RUNNER_TEMP/reply.md"
+            gh api --method POST "repos/$REPOSITORY/issues/$PR_NUMBER/comments" -F "body=@$RUNNER_TEMP/reply.md" >/dev/null
+          }
+          emit() {
+            local sha="$1" plugin="$2" skill="$3" pr="$4"
+            {
+              echo "run=true"
+              echo "sha=$sha"
+              echo "plugin=$plugin"
+              echo "skill=$skill"
+              echo "scope=${plugin:-all}${skill:+/$skill}"
+              echo "pr=$pr"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$INPUT_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "ref must be a 40-character commit SHA." >&2; exit 2; }
+            [[ -z "$INPUT_PLUGIN" || "$INPUT_PLUGIN" =~ $NAME ]] || { echo "plugin must be a plugin directory name." >&2; exit 2; }
+            [[ -z "$INPUT_SKILL" || "$INPUT_SKILL" =~ $NAME ]] || { echo "skill must be a skill directory name." >&2; exit 2; }
+            [[ -z "$INPUT_SKILL" || -n "$INPUT_PLUGIN" ]] || { echo "skill requires plugin." >&2; exit 2; }
+            emit "$INPUT_REF" "$INPUT_PLUGIN" "$INPUT_SKILL" ""
+            exit 0
+          fi
+
+          request="$(GITHUB_OUTPUT='' node eng/vally-adapter/eval-request.mjs)"
+          field() { sed -n "s/^$1=//p" <<< "$request"; }
+          [[ "$(field requested)" == "true" ]] || skip
+
+          permission="$(gh api "repos/$REPOSITORY/collaborators/$COMMENTER/permission" --jq .permission || echo none)"
+          if [[ "$permission" != "admin" && "$permission" != "write" ]]; then
+            reply "only maintainers with write access can run \`/evals\`."
+            skip
+          fi
+
+          gh api --method POST "repos/$REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null || true
+
+          if [[ "$(field valid)" != "true" ]]; then
+            reply "$(field error)"
+            skip
+          fi
+          plugin="$(field plugin)"
+          skill="$(field skill)"
+
+          read -r state sha < <(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '"\(.state) \(.head.sha)"')
+          if [[ "$state" != "open" || ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            reply "\`/evals\` only runs on an open pull request."
+            skip
+          fi
+
+          if [[ -n "$plugin" ]] && ! gh api "repos/$REPOSITORY/contents/tests/$plugin${skill:+/$skill}?ref=$sha" >/dev/null 2>&1; then
+            reply "no evaluation found under \`tests/$plugin${skill:+/$skill}\` at commit \`${sha:0:7}\`."
+            skip
+          fi
+
+          emit "$sha" "$plugin" "$skill" "$PR_NUMBER"
+
+      - name: Announce queued evaluation
+        if: steps.request.outputs.run == 'true' && steps.request.outputs.pr != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.request.outputs.pr }}
+          SHA: ${{ steps.request.outputs.sha }}
+          SCOPE: ${{ steps.request.outputs.scope }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          node eng/vally-adapter/pr-comment.mjs --results-dir "$RUNNER_TEMP/none" --outcome queued \
+            --sha "$SHA" --scope "$SCOPE" --run-url "$RUN_URL" --output "$RUNNER_TEMP/comment.md"
+          bash eng/vally-adapter/upsert-pr-comment.sh "$REPOSITORY" "$PR_NUMBER" "$RUNNER_TEMP/comment.md"
+
+  vally-evaluation:
+    name: Vally evaluation
+    needs: [static-validation, eval-request]
+    if: >-
+      always() &&
+      needs.eval-request.outputs.run == 'true' &&
+      (needs.static-validation.result == 'success' || needs.static-validation.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: vally-evaluation
+    steps:
+      # The runner, adapter, and experiment come from the trusted workflow revision;
+      # only distributable plugins and their tests come from the evaluated commit.
+      - name: Checkout trusted runner
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Checkout evaluated commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.eval-request.outputs.sha }}
+          path: .evaluated
+          persist-credentials: false
+
+      - name: Stage evaluated plugins and tests
+        shell: bash
+        env:
+          SHA: ${{ needs.eval-request.outputs.sha }}
+        run: |
+          set -euo pipefail
+          rm -rf plugins tests
+          cp -RP .evaluated/plugins .evaluated/tests .
+          rm -rf .evaluated
+          echo "Evaluating plugins/ and tests/ from $SHA with the runner from $GITHUB_SHA."
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Vally evaluation
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          PLUGIN: ${{ needs.eval-request.outputs.plugin }}
+          SKILL: ${{ needs.eval-request.outputs.skill }}
+        run: |
+          set -euo pipefail
+          [[ -n "$GITHUB_TOKEN" ]] || {
+            echo "Configure the COPILOT_GITHUB_TOKEN environment secret before running Vally." >&2
+            exit 1
+          }
+
+          args=()
+          if [[ -n "$PLUGIN" ]]; then
+            args+=("$PLUGIN")
+          fi
+          if [[ -n "$SKILL" ]]; then
+            args+=("$SKILL")
+          fi
+          ./eng/run-skill-evals.sh "${args[@]}"
+
+      - name: Write evaluation summary
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ job.status }}
+          SHA: ${{ needs.eval-request.outputs.sha }}
+          SCOPE: ${{ needs.eval-request.outputs.scope }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node eng/vally-adapter/pr-comment.mjs --results-dir eval-results --outcome "$OUTCOME" \
+            --sha "$SHA" --scope "$SCOPE" --run-url "$RUN_URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Vally artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vally-results-${{ needs.eval-request.outputs.plugin || 'all' }}-${{ needs.eval-request.outputs.skill || 'all' }}
+          path: eval-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload adapted verdicts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vally-verdicts-${{ github.run_id }}
+          path: |
+            eval-results/**/results.json
+            !eval-results/_experiment/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  report-evaluation:
+    name: Report evaluation on pull request
+    needs: [eval-request, vally-evaluation]
+    if: always() && needs.eval-request.outputs.run == 'true' && needs.eval-request.outputs.pr != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout trusted workflow revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download adapted verdicts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: vally-verdicts-${{ github.run_id }}
+          path: verdicts
+
+      - name: Update pull request comment
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.eval-request.outputs.pr }}
+          OUTCOME: ${{ needs.vally-evaluation.result }}
+          SHA: ${{ needs.eval-request.outputs.sha }}
+          SCOPE: ${{ needs.eval-request.outputs.scope }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          node eng/vally-adapter/pr-comment.mjs --results-dir verdicts --outcome "$OUTCOME" \
+            --sha "$SHA" --scope "$SCOPE" --run-url "$RUN_URL" --output "$RUNNER_TEMP/comment.md"
+          bash eng/vally-adapter/upsert-pr-comment.sh "$REPOSITORY" "$PR_NUMBER" "$RUNNER_TEMP/comment.md"
+
+  publish-evaluation-data:
+    name: Publish evaluation data
+    needs: vally-evaluation
+    # Dashboard publication is disabled until the DASHBOARD_PUBLISHING repository variable is 'true'.
+    if: >-
+      vars.DASHBOARD_PUBLISHING == 'true' &&
+      github.event_name == 'workflow_dispatch' &&
+      needs.vally-evaluation.result == 'success'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: dashboard-data
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout reviewed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require evaluated commit on main
+        id: eligibility
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "${{ inputs.ref }}" origin/main || {
+            echo "Evaluated commit is not on main; results remain private workflow artifacts."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Download Vally artifacts
+        if: steps.eligibility.outputs.publish == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vally-results-*
+          path: downloaded-results
+          merge-multiple: true
+
+      - name: Load existing dashboard history
+        if: steps.eligibility.outputs.publish == 'true'
+        run: |
+          git fetch origin dashboard-data:dashboard-data 2>/dev/null || true
+          mkdir -p dashboard-data
+          git show dashboard-data:history.json > dashboard-data/history.json 2>/dev/null || echo '{"schemaVersion":1,"skills":{}}' > dashboard-data/history.json
+
+      - name: Update public history
+        if: steps.eligibility.outputs.publish == 'true'
+        run: |
+          mapfile -t results < <(find downloaded-results -name results.json -type f | sort)
+          if (( ${#results[@]} == 0 )); then
+            echo "No adapted results found; nothing to publish."
+            exit 0
+          fi
+          args=()
+          for result in "${results[@]}"; do args+=(--results "$result"); done
+          node eng/dashboard/update-history.mjs \
+            "${args[@]}" \
+            --history dashboard-data/history.json \
+            --commit "${{ inputs.ref }}" \
+            --run "${{ github.run_id }}" \
+            --url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Push dashboard data branch
+        if: steps.eligibility.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          worktree="$(mktemp -d)"
+          git worktree add --detach "$worktree"
+          cd "$worktree"
+          git checkout --orphan dashboard-data-next
+          git rm -rf . >/dev/null 2>&1 || true
+          cp "$GITHUB_WORKSPACE/dashboard-data/history.json" history.json
+          git add history.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'chore(dashboard): update evaluation history'
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" HEAD:dashboard-data
+
+  deploy-dashboard:
+    name: Deploy dashboard
+    needs: [static-validation, publish-evaluation-data]
+    if: >-
+      always() &&
+      vars.DASHBOARD_PUBLISHING == 'true' &&
+      needs.static-validation.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || needs.publish-evaluation-data.result == 'success')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install validation dependencies
+        run: npm ci --prefix eng/validation
+
+      - name: Generate current catalogue
+        run: bash eng/validate.sh --base-ref HEAD --report artifacts/validation/report.json
+
+      - name: Load public history
+        run: |
+          git fetch origin dashboard-data:dashboard-data 2>/dev/null || true
+          mkdir -p dashboard-data
+          git show dashboard-data:history.json > dashboard-data/history.json 2>/dev/null || echo '{"schemaVersion":1,"skills":{}}' > dashboard-data/history.json
+
+      - name: Build dashboard
+        run: node eng/dashboard/build.mjs --report artifacts/validation/report.json --history dashboard-data/history.json --output artifacts/dashboard
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: artifacts/dashboard
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

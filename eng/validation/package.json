@@ -1,0 +1,8 @@
+{
+  "name": "microcks-agent-skills-validation",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "yaml": "2.9.0"
+  }
+}

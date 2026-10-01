@@ -80,15 +80,17 @@ Repository-authored developer skills belong in the same directory but are not AP
 
 ## Validation architecture
 
-The repository uses small, independent workflows rather than a single broad workflow. Each workflow has one ownership boundary and a clear failure message.
+[validation.yml](.github/workflows/validation.yml) is the single repository-validation workflow. Its static job runs the plugin structure, marketplace synchronization, README registration, skill and agent profiles, external evaluation quality, dashboard generation, and runner self-checks in one execution. The contract validator accumulates independent failures, so a developer receives every actionable static error from one run instead of fixing failures one workflow at a time.
 
-| Workflow | Responsibility |
-|----------|----------------|
-| [plugin-structure.yml](.github/workflows/plugin-structure.yml) | Validates required plugin files and verifies that each skill directory has `SKILL.md`. |
-| [marketplace-sync.yml](.github/workflows/marketplace-sync.yml) | Verifies that every plugin is registered and that all marketplace plugin lists are identical. |
-| [readme-plugins.yml](.github/workflows/readme-plugins.yml) | Verifies that every plugin directory is mentioned in the root README. |
+The static job is deterministic, credential-free, and runs for every relevant pull request and push to `main`, including contributions from forks. The Vally job is in the same workflow but only runs when a maintainer requests it, either with a `/evals` pull-request comment or a manual dispatch.
 
-These checks are intentionally deterministic. They run without model credentials and are suitable for every pull request, including contributions from forks.
+### Progressive contract adoption
+
+The structured validator distinguishes objective errors from heuristics. Objective errors include malformed manifests, missing registrations or documentation, invalid frontmatter, unsafe or missing references, missing evals, invalid fixtures, and evaluations too small to produce a credible verdict. Heuristics such as token range, section count, workflow steps, and example density are warnings.
+
+Pull requests pass a base commit to the validator. An objective finding attached to a new or changed component is blocking; the same finding on untouched legacy content is reported as grandfathered debt. This makes the policy monotonic without a permanent allowlist: no new debt can enter, and touching an existing component brings that component under the current contract.
+
+The validator writes `artifacts/validation/report.json` with `schemaVersion: 1`. The report is both an Actions artifact and the source for the dashboard catalogue. It contains distributable metadata and aggregate quality facts, not model conversations.
 
 ## Evaluation architecture
 
@@ -126,7 +128,7 @@ flowchart LR
 | Static contract | Require a valid external evaluation specification and validate it without a model. | Required |
 | Authoring guidance | Define scenario, fixture, grader, and non-hijacking conventions. | Required with the static contract |
 | Local pilot | Run the pinned Vally CLI with [eng/run-skill-evals.sh](./eng/run-skill-evals.sh) and preserve raw artifacts for inspection. | Advisory |
-| Runtime evaluation | Compare a baseline with a target skill and optionally the complete plugin. | Advisory until stable |
+| Maintainer runtime evaluation | A maintainer comments `/evals [plugin] [skill]` on a pull request, or dispatches [validation.yml](.github/workflows/validation.yml) for one reviewed commit. It compares a baseline with the target skill, uploads raw artifacts, and posts aggregate verdicts on the pull request. | Advisory until stable |
 | Trusted PR automation | Run model-backed evaluations only from a maintainer-approved, SHA-bound request with scoped credentials. | Future decision |
 
 ### Evaluation specifications
@@ -160,7 +162,36 @@ Model-backed evaluation is not a normal pull-request command. It requires creden
 - validate derived plugin, skill, and fixture paths before using them;
 - retain raw artifacts so timeouts and harness failures are not misreported as skill regressions.
 
-Until that workflow exists, static validation remains the required quality gate and model execution remains an explicit local or maintainer-controlled pilot. The local runner provides the same skill-free baseline versus isolated-skill comparison model as `dotnet/skills`; it adapts each completed run into a Vally `compare` verdict at `eval-results/<plugin>/<skill>/results.json`. The verdict uses the direction of paired wins and losses with an exact one-sided sign test, reporting insufficient or incomplete evidence as inconclusive. Generated output remains ignored and is not a pull-request requirement.
+Static validation remains the required quality gate. The runtime job receives its Copilot credential only from the `COPILOT_GITHUB_TOKEN` secret in the approval-protected `vally-evaluation` environment. The local runner provides the same skill-free baseline versus isolated-skill comparison model as `dotnet/skills`; it adapts each completed run into a Vally `compare` verdict at `eval-results/<plugin>/<skill>/results.json`. The verdict uses the direction of paired wins and losses with an exact one-sided sign test, reporting insufficient or incomplete evidence as inconclusive. Generated output remains ignored and is not a pull-request requirement.
+
+### Pull-request evaluation flow
+
+```mermaid
+flowchart LR
+    C["/evals comment"] --> R[eval-request]
+    D[workflow_dispatch] --> R
+    R -->|frozen SHA, scope| V["vally-evaluation<br/>(environment approval, secret)"]
+    V -->|results.json| P["report-evaluation<br/>(no secret)"]
+    P --> PR[Single PR comment]
+```
+
+1. `eval-request` runs without the model credential. It accepts only comments from users with write or admin permission, parses the scope with [eval-request.mjs](./eng/vally-adapter/eval-request.mjs), freezes the pull request head SHA at comment time, and posts a queued comment showing that SHA to the environment approver.
+2. `vally-evaluation` checks out the runner, adapter, and experiment from the workflow's own revision (the default branch for comments) and replaces only `plugins/` and `tests/` with the frozen commit. A pull request therefore cannot modify the code that receives the credential.
+3. `report-evaluation` holds `pull-requests: write` but no model credential. It renders the adapted verdicts with [pr-comment.mjs](./eng/vally-adapter/pr-comment.mjs) and updates one comment identified by the `<!-- vally-evals -->` marker. Only aggregate metrics are rendered; prompts, evidence, and trajectories remain in the run's artifacts.
+
+## Public dashboard architecture
+
+> [!NOTE]
+> Publication is currently disabled. The dashboard is still built as a static check, but `publish-evaluation-data` and `deploy-dashboard` run only when the `DASHBOARD_PUBLISHING` repository variable is `true`. Until then, evaluation results are visible only in pull-request comments and workflow summaries.
+
+The dashboard combines two trust domains:
+
+1. The current plugin catalogue and static quality profile, deterministically regenerated from `main`.
+2. Aggregate Vally verdict history, written only after a maintainer-approved evaluation of a commit that is already an ancestor of `main`.
+
+The `dashboard-data` branch stores a versioned `history.json`, deduplicated by run and skill and bounded to the latest five records per skill. Published records contain the evaluated commit, workflow URL, model labels, verdict state, net win, sign-test counts and p-value, and trial count. Raw prompts, model outputs, evidence strings, and trajectories remain in short-lived private workflow artifacts and are never copied into public history.
+
+GitHub Pages is deployed through the official Pages actions with a read-only checkout and narrowly scoped `pages: write` and `id-token: write` permissions. The dashboard is a static application with no runtime service or model credential. The repository must enable Pages with **GitHub Actions** as its source. Maintainers should protect `dashboard-data` so only the publication workflow can update it.
 
 ## Contributor navigation
 

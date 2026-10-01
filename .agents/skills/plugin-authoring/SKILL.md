@@ -31,6 +31,8 @@ Determine the requested outcome and the smallest affected boundary. If a request
 
 Do not create a new plugin when a skill or agent belongs in an existing one. Do not put repository-only developer tools under `plugins/`.
 
+A distributed skill is directly invocable unless its frontmatter explicitly declares `disable-model-invocation: true`. Directly invocable skills require their own external evaluation. Reference skills are evaluated through the invocable consumer that loads them; do not create a direct-activation eval that cannot activate in production.
+
 ## Process
 
 ### 1. Discover the change boundary
@@ -53,7 +55,7 @@ A focused documentation-only change does not require unrelated evaluation work.
 
 ### 4. Validate and deliver
 
-Run the applicable deterministic checks. Then use `plugin-delivery-report` to report scope, changed artifacts, observable behavior, evidence, validation results, and runtime status. Never claim that an unrun check passed.
+Run `bash eng/validate.sh --base-ref HEAD --report artifacts/validation/report.json` and inspect the structured result. A changed component must have no blocking errors; grandfathered errors describe untouched debt and warnings describe non-blocking quality heuristics. Then use `plugin-delivery-report` to report scope, changed artifacts, observable behavior, evidence, validation results, and runtime status. Never claim that an unrun check passed.
 
 ## Constraints
 

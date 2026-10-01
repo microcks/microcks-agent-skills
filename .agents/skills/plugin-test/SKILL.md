@@ -30,6 +30,8 @@ Create outcome-focused external evidence for a directly invocable plugin skill o
 
 For a skill, verify `plugins/<plugin>/skills/<skill>/SKILL.md` exists. For an agent, verify `plugins/<plugin>/agents/<agent>.agent.md` exists. Read the target before creating its test; outcome-focused rubrics depend on understanding the behavior without copying its instructions.
 
+If a skill declares `disable-model-invocation: true`, do not create a direct-activation eval for it. Identify the invocable consumer that loads it and add dependency-level evidence there instead.
+
 Use these external test paths:
 
 ```text
@@ -82,7 +84,7 @@ For non-activation cases, assess recognition, restraint, and redirection separat
 
 ### 6. Validate the specification
 
-Use `defaults:` for shared timeout and run settings; never declare both `defaults:` and `config:`. Every scenario needs a realistic prompt and at least one configured grader. Parse the YAML and verify every fixture and source path.
+Use `defaults:` for shared timeout and run settings; never declare both `defaults:` and `config:`. Every scenario needs a realistic prompt and at least one configured grader. Parse the YAML with duplicate-key detection and verify every fixture and source path is confined to the eval directory, present, and tracked.
 
 Plan enough comparative evidence before declaring an improvement:
 
@@ -91,6 +93,8 @@ $$
 $$
 
 Use at least five trials for a future comparison verdict. Static checks are required now; credentialed runtime comparisons are a separate maintainer-controlled phase.
+
+Finish with `bash eng/validate.sh --base-ref HEAD --report artifacts/validation/report.json`. The eval is structurally ready only when its changed component has no blocking finding. A 5–7 trial eval is valid but reported as statistically fragile.
 
 ## Checklist
 

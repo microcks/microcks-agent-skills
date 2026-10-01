@@ -73,6 +73,7 @@ A good skill:
 - keeps large reference material in `references/` rather than making the entry file difficult to load;
 - does not restate generic advice with no observable result.
 
+
 After the behavior is ready, use `plugin-authoring` to check the plugin-specific distribution work that accompanies it.
 
 ## Create external evaluation evidence
@@ -88,6 +89,8 @@ tests/<plugin-name>/agent.<agent-name>/eval.yaml
 ```
 
 Fixtures live beside the specification, normally under `fixtures/`. They must be tracked and referenced by the test definition. Keeping this material outside `plugins/` prevents test prompts and fixtures from becoming part of marketplace installations.
+
+A distributed skill may omit a direct eval only when its frontmatter declares `disable-model-invocation: true`. Such a reference skill cannot be selected from a natural user prompt; its behavior belongs in the evaluation of the invocable skill or agent that loads it. The validation report identifies this distinction explicitly.
 
 ### Design scenarios from user outcomes
 
@@ -131,9 +134,83 @@ The runner compares a skill-free baseline with a run that loads only the target 
 ./eng/run-skill-evals.sh plugin1 skill1
 ```
 
-It also accepts a plugin name to test that plugin's evaluated skills, or no arguments to run every evaluation. A comparison with insufficient or incomplete evidence is reported as inconclusive rather than as a regression. See [eng/README.md](../eng/README.md) for prerequisites, configuration overrides, and output locations.
+#### Run only the workflow being changed
+
+Developers should start with the smallest scope: one plugin and one skill. This is the fastest execution, avoids spending model calls on unrelated evaluations, and produces a result only for the changed skill.
+
+```sh
+# Replace <plugin> and <skill> with the directories under plugins/<plugin>/skills/.
+./eng/run-skill-evals.sh <plugin> <skill> --dry-run
+./eng/run-skill-evals.sh <plugin> <skill>
+```
+
+The runner resolves the matching external specification at `tests/<plugin>/<skill>/eval.yaml`; it stops if either that file or the skill entry point is missing. Run `./eng/run-skill-evals.sh <plugin>` only when changes affect several skills in the same plugin. Run `./eng/run-skill-evals.sh` only for repository-wide evaluation work.
+
+A comparison with insufficient or incomplete evidence is reported as inconclusive rather than as a regression. See [eng/README.md](../eng/README.md) for prerequisites, configuration overrides, and output locations.
+
+### Select a Claude model locally
+
+The tracked [microcks-agent-skills.experiment.yaml](../microcks-agent-skills.experiment.yaml) deliberately uses the `copilot-sdk` executor. This is the repository default and must remain unchanged so contributors and CI use the same Copilot runtime.
+
+The executor and model are different settings. The current default already asks Copilot to run `claude-sonnet-5`. To try another Claude model available through the developer's Copilot entitlement, copy the experiment file outside the repository, update only `overrides.model`, then point the runner to that copy:
+
+```sh
+cp microcks-agent-skills.experiment.yaml "$TMPDIR/microcks-agent-skills.claude.yaml"
+# Edit overrides.model in the copied file to a Claude model available to you.
+EXPERIMENT_FILE="$TMPDIR/microcks-agent-skills.claude.yaml" \
+    ./eng/run-skill-evals.sh plugin1 skill1
+```
+
+Do not commit a local model selection or change `executor: copilot-sdk`. Vally 0.12.0 provides `copilot-sdk` as its built-in agent executor; selecting a Claude model changes the model served by Copilot, not the agent runtime to Claude Code.
+
+## Run validation in GitHub Actions
+
+[validation.yml](../.github/workflows/validation.yml) is the repository's single validation workflow. Its static job runs automatically for relevant pull requests and pushes, and completes all deterministic checks before returning a failure. This groups independent contract errors in one run.
+
+The Vally job never runs automatically because it uses a protected Copilot credential. Configure the `vally-evaluation` GitHub environment with required maintainer reviewers and the `COPILOT_GITHUB_TOKEN` secret.
+
+### Evaluate a pull request with `/evals`
+
+A maintainer with write access comments on the pull request:
+
+```text
+/evals                    # every covered skill
+/evals <plugin>           # one plugin
+/evals <plugin> <skill>   # one skill
+```
+
+The workflow reacts with 👀, freezes the pull request head commit at the time of the comment, and posts a single evaluation comment marked as queued. A reviewer of the `vally-evaluation` environment then approves the run for that commit. When it finishes, the same comment is updated with one row per skill: verdict, wins/ties/losses, sign-test p-value, trial count, and net win. Prompts and trajectories are never posted in the pull request; they stay in the run's artifacts.
+
+The runner, adapter, and experiment come from the default branch. Only `plugins/` and `tests/` come from the evaluated commit, so a pull request cannot change the code that receives the credential. Comments from users without write access, invalid arguments, closed pull requests, and missing `tests/<plugin>[/<skill>]` directories receive a short reply and start no evaluation. The trigger takes effect only once the workflow is on the default branch, because GitHub always runs `issue_comment` workflows from there.
+
+### Evaluate a commit manually
+
+A maintainer can also run **Actions → validation → Run workflow**, supply the reviewed 40-character commit SHA, and optionally narrow the run to one plugin and skill. The results appear in the job summary. For the current checkout, the equivalent GitHub CLI invocation is:
+
+```sh
+gh workflow run validation.yml --ref main \
+    -f ref="$(git rev-parse HEAD)" \
+    -f plugin=<plugin> \
+    -f skill=<skill>
+```
+
+Omit `plugin` and `skill` only when a reviewed repository-wide comparison is intended. The action uploads `eval-results/` as an artifact even when the runtime evaluation fails, so incomplete trajectories can be inspected.
+
+### Dashboard publication
+
+The dashboard code in [eng/dashboard/](../eng/dashboard/) is still built by the static job as a check, but it is not published. The `publish-evaluation-data` and `deploy-dashboard` jobs run only when the `DASHBOARD_PUBLISHING` repository variable is set to `true`.
 
 ## Validate before requesting review
+
+Install the pinned dependency once, then run the diff-aware gate and optionally preview the dashboard:
+
+```sh
+npm ci --prefix eng/validation
+bash eng/validate.sh --base-ref HEAD --report artifacts/validation/report.json
+node eng/dashboard/build.mjs --report artifacts/validation/report.json --output artifacts/dashboard
+```
+
+With `--base-ref`, unchanged legacy findings remain visible without blocking the pull request. Editing the affected component opts it into the complete current contract; no permanent allowlist is used.
 
 Before finishing a plugin change, verify the items relevant to its scope:
 

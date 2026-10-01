@@ -28,7 +28,8 @@ Produce the final concise delivery report after the coordinator completes the ap
 - Trials: <stimuli> × <runs> = <total | not configured>
 
 ### Validation
-- <check>: <passed | failed | not run, with reason>
+- Static contract: <passed | failed | not run, with blocking/grandfathered/warning counts when available>
+- Runtime evaluation: <passed | failed | inconclusive | not run, with reason>
 
 ### Runtime status
 - <not configured | advisory pilot | executed with artifact location>
@@ -40,5 +41,6 @@ Produce the final concise delivery report after the coordinator completes the ap
 - Link each workspace file path when the chat environment supports it.
 - State why evidence is not applicable rather than silently omitting it.
 - Identify a failed or skipped validation explicitly.
+- Do not call a change valid when its structured report contains a blocking error. Grandfathered findings are untouched debt, and warnings are quality guidance; report both separately from failures.
 - Do not claim model-backed execution, credentials, artifacts, or comparison results unless they exist.
 - Keep the report focused on the requested change.

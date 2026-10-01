@@ -12,10 +12,14 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) before changing repository structure, 
 - Bump `plugin.json` according to Semantic Versioning when changing a published plugin.
 - Keep repository-only developer skills under `.agents/skills/`; never register them as marketplace plugins.
 - Keep plugin evaluation specifications and fixtures outside distributable plugin content under `tests/<plugin-name>/<skill-name>/`.
+- Give every distributed skill and agent valid YAML frontmatter. Directly invocable skills require `tests/<plugin>/<skill>/eval.yaml`; only skills declaring `disable-model-invocation: true` are exempt from direct-activation evaluations.
+- Run `bash eng/validate.sh --base-ref HEAD` before review. Objective errors on new or changed components block delivery; unchanged legacy findings remain visible as grandfathered debt.
 
 The existing CI workflows enforce plugin structure, marketplace synchronization, and README registration. Use the local `plugin-authoring` skill when creating or evolving a plugin, skill, agent, or its evaluation specification. Use `plugin-test` to create or review external evaluation scenarios and fixtures.
 
 See [Developer workflows](./docs/developer-workflows.md) for the purpose of each local skill and the end-to-end contributor workflow.
+
+Maintainers run Vally on a pull request with a `/evals [plugin] [skill]` comment; results are posted back as one aggregate pull-request comment. Dashboard publication is disabled unless the `DASHBOARD_PUBLISHING` repository variable is `true`. Never publish raw prompts, trajectories, or comparison evidence to pull-request comments or dashboard data.
 
 ## Repository-local skills
 

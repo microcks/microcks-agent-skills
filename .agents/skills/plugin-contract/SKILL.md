@@ -35,6 +35,8 @@ Add the plugin to the root README catalogue. Do not register repository-local de
 
 Place a skill at `plugins/<plugin>/skills/<skill>/SKILL.md`. Its frontmatter name matches its folder, and its description explains both behavior and trigger conditions. The body gives input assumptions, ordered workflow, observable output, and constraints. Put detailed material in `references/` rather than overloading the main file.
 
+Treat a skill as model-invocable by default. Only set `disable-model-invocation: true` when another skill or agent loads it explicitly as reference material. That flag changes the evidence contract: the reference skill needs dependency-level coverage in its consumer rather than an isolated activation eval.
+
 Place an agent at `plugins/<plugin>/agents/<agent>.agent.md`. State its mission, inputs, outputs, constraints, and collaboration boundary. Prefer a skill unless the work needs isolated context, a distinct role, or tool restrictions.
 
 ## Change rules
@@ -54,3 +56,5 @@ Before returning control to the coordinator, verify the applicable contract:
 - all marketplace registrations are identical;
 - each new plugin appears in the root README;
 - published metadata and documentation agree.
+- each invocable skill and each agent has its external evaluation, while reference skills are identified explicitly;
+- the structured validation report contains no blocking error for the changed component; grandfathered findings and warnings are reported rather than hidden.

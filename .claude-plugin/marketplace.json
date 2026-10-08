@@ -1,0 +1,13 @@
+{
+  "name": "microcks-agent-skills",
+  "owner": {
+    "name": "Microcks"
+  },
+  "plugins": [
+    {
+      "name": "microcks-oidc",
+      "source": "./plugins/microcks-oidc",
+      "description": "Mock OpenID Connect provider served by Microcks, with generated keys, signed tokens and dispatch rules."
+    }
+  ]
+}

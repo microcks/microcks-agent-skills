@@ -1,0 +1,28 @@
+# Skill-vs-baseline evaluation experiment.
+# Each external specification is evaluated twice:
+# - baseline: no plugin skill is available to the agent.
+# - skilled: only the skill derived from the eval path is available.
+name: microcks-agent-skills
+
+evals:
+  - tests/*/*/eval.yaml
+
+overrides:
+  executor: copilot-sdk
+  model: claude-sonnet-5
+  judge_model: gpt-5.6-luna
+
+# A valid comparison may change only the skills made available to the agent.
+vary:
+  - /environment/skills
+
+baseline: baseline
+
+variants:
+  baseline:
+    environment:
+      skills: []
+  skilled:
+    environment:
+      skills:
+        - plugins/${eval.grandparent}/skills/${eval.parent}

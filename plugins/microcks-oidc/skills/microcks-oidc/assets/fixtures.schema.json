@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/microcks/microcks-agent-skills/main/plugins/microcks-oidc/skills/microcks-oidc/assets/fixtures.schema.json",
+  "title": "Microcks OIDC fixtures declaration",
+  "description": "Source of truth for what varies in a mock OpenID Connect provider: clients, user profiles, failure paths. Mutated only through the oidc_fixtures.py subcommands. The provider identity (API name, version, issuer) is not authored here but derived from the contract, which also serves the discovery document.",
+  "type": "object",
+  "required": [
+    "declarationVersion",
+    "issuer",
+    "api",
+    "signingKeyId",
+    "clock",
+    "clients",
+    "profiles",
+    "errorCases"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "declarationVersion": {
+      "const": 1,
+      "description": "Schema version. The generator refuses a document it does not understand."
+    },
+    "issuer": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Value of the iss claim. Derived at init from the issuer the contract's discovery document advertises, and re-checked by verify: a relying party rejects an id_token whose iss disagrees with discovery."
+    },
+    "api": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "description": "Microcks API identity, derived at init from the contract's info block. Also derives the artefact file names.",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "signingKeyId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "kid of the provider signing key, and the stem of its PEM files under keys/."
+    },
+    "clock": {
+      "type": "object",
+      "required": ["issuedAt", "expiresAt"],
+      "additionalProperties": false,
+      "description": "Frozen timestamps. Fixed rather than computed so that rebuilding is byte-identical.",
+      "properties": {
+        "issuedAt": { "type": "integer", "description": "iat claim, seconds since epoch." },
+        "expiresAt": { "type": "integer", "description": "exp claim, seconds since epoch." }
+      }
+    },
+    "defaultProfile": {
+      "type": ["string", "null"],
+      "description": "Profile key the /authorize dispatcher falls back to when no login_hint matches. Must name a declared profile, or be null when no profile is declared."
+    },
+    "clients": {
+      "type": "array",
+      "description": "Declared OAuth 2.0 clients. Client ids must be unique.",
+      "items": {
+        "type": "object",
+        "required": ["id", "grant", "auth", "audience", "scopes"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "client_id, and the stem of the client key files under keys/."
+          },
+          "grant": {
+            "enum": ["authorization_code", "client_credentials"],
+            "description": "authorization_code drives the browser login and mints id_tokens; client_credentials is the machine-to-machine case and mints no id_token."
+          },
+          "auth": {
+            "enum": ["private_key_jwt", "client_secret"],
+            "description": "How the client authenticates at the token endpoint. private_key_jwt generates a client JWK; client_secret requires a secret."
+          },
+          "audience": {
+            "type": "string",
+            "minLength": 1,
+            "description": "aud claim of the access tokens issued to this client."
+          },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Granted scopes. Each build also appends them to scopes_supported in the contract's discovery document, additively: nothing already advertised is ever removed."
+          },
+          "secret": {
+            "type": ["string", "null"],
+            "description": "Required when auth is client_secret; null otherwise. Test material only."
+          }
+        }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "description": "User identities the mock can authenticate. Profile keys must be unique.",
+      "items": {
+        "type": "object",
+        "required": ["key", "sub", "name", "loginHint", "code"],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Identifies the profile in the declaration and derives its dispatch case name."
+          },
+          "sub": { "type": "string", "minLength": 1, "description": "sub claim." },
+          "name": { "type": "string", "description": "name claim." },
+          "email": { "type": ["string", "null"], "description": "email claim; omitted when null." },
+          "loginHint": {
+            "type": "string",
+            "description": "Value of login_hint that selects this profile at the authorize endpoint."
+          },
+          "code": {
+            "type": "string",
+            "description": "Authorization code carrying this identity from /authorize to /token. Must be unique across profiles and error cases."
+          },
+          "claims": {
+            "type": "object",
+            "description": "Extra claims merged into the id_token and the userinfo response. String values and string arrays both allowed. Each build also appends the claim names to claims_supported in the contract's discovery document, additively.",
+            "additionalProperties": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "errorCases": {
+      "type": "array",
+      "description": "Rejected-login paths, each reachable through its own login_hint.",
+      "items": {
+        "type": "object",
+        "required": ["key", "loginHint", "code", "error", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "key": { "type": "string", "minLength": 1, "description": "Derives the dispatch case name." },
+          "loginHint": { "type": "string", "description": "login_hint selecting this failure path." },
+          "code": { "type": "string", "description": "Authorization code routed to the failure response." },
+          "error": {
+            "type": "string",
+            "description": "OAuth 2.0 error code returned by the token endpoint, for example invalid_client."
+          },
+          "description": { "type": "string", "description": "error_description value." }
+        }
+      }
+    }
+  }
+}

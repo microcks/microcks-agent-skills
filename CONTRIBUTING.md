@@ -76,6 +76,23 @@ Prefix that follows specification is not enough though. Remember that the title 
 
 Happy contributing :heart:
 
+## Plugin and skill validation
+
+Plugin contributions are checked by a deterministic, credential-free quality gate. It validates plugin manifests, marketplace registrations, README catalogue entries, license links, skill and agent frontmatter, portable references, external evaluation specifications, fixtures, and the minimum evidence needed for a Vally verdict.
+
+Install the pinned validation dependency and run the same entry point used by CI:
+
+```sh
+npm ci --prefix eng/validation
+bash eng/validate.sh --base-ref HEAD
+```
+
+The base comparison supports progressive adoption. Existing findings on an untouched component are reported as grandfathered debt. A new component, or a legacy component changed by the pull request, must satisfy the complete objective contract. Quality heuristics such as token range, document structure, and example density are warnings rather than merge blockers.
+
+Every model-invocable distributed skill requires `tests/<plugin>/<skill>/eval.yaml`. A skill with `disable-model-invocation: true` is a reference skill and should be covered indirectly by its consumer instead. Every distributed agent requires `tests/<plugin>/agent.<agent>/eval.yaml`.
+
+Model-backed Vally execution remains maintainer-controlled. It is never required to expose credentials to a pull request or fork. A maintainer can comment `/evals [plugin] [skill]` on your pull request; after environment approval, the results are posted as one aggregate comment on the pull request. Dashboard publication is currently disabled. When enabled, its history is updated only from an evaluated commit already merged into `main`, and contains aggregate verdict metrics rather than prompts or session trajectories.
+
 ## License
 
 When you submit changes, your submissions are understood to be under the same [Apache 2.0 License](https://github.com/microcks/microcks/blob/master/LICENSE) that covers the project. Feel free to [contact the maintainers](https://github.com/microcks/.github/blob/main/MAINTAINERS.md) if that's a concern.

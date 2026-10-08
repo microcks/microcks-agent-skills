@@ -1,0 +1,75 @@
+name: plugin-authoring
+description: Validates the repository-local plugin authoring coordinator.
+type: capability
+defaults:
+  timeout: 2m
+  runs: 3
+stimuli:
+  - name: Create a complete plugin
+    prompt: |
+      Create a new `mocking` plugin with one `mock-service` skill. Explain every
+      repository artifact that must be created or updated so the plugin can be
+      installed from each marketplace.
+    graders:
+      - type: output-contains
+        config:
+          substring: plugins/mocking/plugin.json
+      - type: output-contains
+        config:
+          substring: .agents/marketplace.json
+      - type: output-contains
+        config:
+          substring: ../../LICENSE
+      - type: prompt
+    rubric:
+      - Creates a plugin structure, marketplace registration, and root README entry.
+      - Keeps developer-only tooling out of the installable plugin.
+      - Describes the required license symbolic link rather than a copied license.
+
+  - name: Extend an existing plugin with an agent
+    prompt: |
+      Add a `contract-reviewer` agent to the existing `microcks` plugin. Explain
+      how to decide whether an agent is appropriate, where its definition belongs,
+      and which existing plugin artifacts must be reviewed or updated. Keep the
+      change inside the existing plugin unless a real boundary requires otherwise.
+    graders:
+      - type: output-contains
+        config:
+          substring: plugins/microcks/agents/contract-reviewer.agent.md
+      - type: output-contains
+        config:
+          substring: plugin.json
+      - type: prompt
+    rubric:
+      - Uses an agent only for isolated context, a distinct role, or different tool boundaries.
+      - Keeps the new behavior in the existing plugin instead of creating an unrelated plugin.
+      - Reviews the plugin manifest and README before changing published content.
+
+  - name: Keep a documentation-only change focused
+    prompt: |
+      A contributor asks how to update the root plugin README table. Do not add
+      evaluation files, a new plugin, or a new agent unless they are relevant.
+    graders:
+      - type: prompt
+    rubric:
+      - Keeps the response focused on updating the README table.
+      - Does not add unrelated repository artifacts or request model credentials.
+
+  - name: Keep repository-local tooling private
+    prompt: |
+      Improve the repository-local plugin authoring workflow. It should coordinate
+      skill authoring, plugin distribution rules, external evidence, and delivery
+      reporting. Explain where those pieces belong and what must not be registered
+      in a marketplace.
+    graders:
+      - type: output-contains
+        config:
+          substring: .agents/skills/plugin-authoring/SKILL.md
+      - type: output-contains
+        config:
+          substring: .agents/skills/plugin-test/SKILL.md
+      - type: prompt
+    rubric:
+      - Keeps local developer tooling under the repository-local skills directory.
+      - Does not add repository-local developer tooling to plugin manifests, marketplace manifests, or the public plugin catalogue.
+      - Separates skill authoring, distribution rules, test design, and delivery reporting into focused responsibilities.

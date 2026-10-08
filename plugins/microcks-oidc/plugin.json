@@ -1,0 +1,6 @@
+{
+  "name": "microcks-oidc",
+  "version": "0.1.0",
+  "description": "Mock OpenID Connect provider served by Microcks, with generated keys, signed tokens and dispatch rules.",
+  "skills": ["./skills/"]
+}

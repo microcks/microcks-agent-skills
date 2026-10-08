@@ -6,7 +6,7 @@ A marketplace of AI agent skills and plugins to ease your life working with [Mic
 
 | Plugin | Description |
 |--------|-------------|
-| [plugin1](./plugins/plugin1) | Plugin 1 placeholder — replace with your plugin description. |
+| [microcks-oidc](./plugins/microcks-oidc) | Mock OpenID Connect provider served by Microcks, with generated keys, signed tokens and dispatch rules. |
 
 ## Installation
 

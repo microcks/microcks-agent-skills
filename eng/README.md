@@ -27,15 +27,15 @@ The report uses `schemaVersion: 1` and includes the public catalogue, skill prof
 
 ```sh
 # Validate the experiment without calling a model.
-./eng/run-skill-evals.sh plugin1 skill1 --dry-run
+./eng/run-skill-evals.sh microcks-oidc microcks-oidc --dry-run
 
 # Run one skill, one plugin, or all covered skills.
-./eng/run-skill-evals.sh plugin1 skill1
-./eng/run-skill-evals.sh plugin1
+./eng/run-skill-evals.sh microcks-oidc microcks-oidc
+./eng/run-skill-evals.sh microcks-oidc
 ./eng/run-skill-evals.sh
 ```
 
-The experiment runs the same external [eval.yaml](../tests/plugin1/skill1/eval.yaml) twice: once without any skill and once with only the skill resolved from its test path. After a model run, [vally-adapter/adapt.mjs](vally-adapter/adapt.mjs) compares the paired trajectories and writes one verdict per skill at `eval-results/<plugin>/<skill>/results.json`. A verdict is credible only when its head-to-head direction clears an exact one-sided sign test at $p \leq 0.05$ with at least five trials. An underpowered or incomplete evaluation is reported as inconclusive, not as a skill regression.
+The experiment runs the same external [eval.yaml](../tests/microcks-oidc/microcks-oidc/eval.yaml) twice: once without any skill and once with only the skill resolved from its test path. After a model run, [vally-adapter/adapt.mjs](vally-adapter/adapt.mjs) compares the paired trajectories and writes one verdict per skill at `eval-results/<plugin>/<skill>/results.json`. A verdict is credible only when its head-to-head direction clears an exact one-sided sign test at $p \leq 0.05$ with at least five trials. An underpowered or incomplete evaluation is reported as inconclusive, not as a skill regression.
 
 Raw run records and reports are written beneath `eval-results/_experiment/`, which is ignored by Git. The runner still attempts adaptation when Vally returns a non-zero status because a failed scenario may leave enough completed trajectories for a useful comparison.
 

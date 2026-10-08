@@ -1,0 +1,42 @@
+{
+  "declarationVersion": 1,
+  "issuer": "microcks",
+  "api": {
+    "name": "OIDC",
+    "version": "1.0"
+  },
+  "signingKeyId": "oidc-signing-key",
+  "clock": {
+    "issuedAt": 1732031605,
+    "expiresAt": 2047568005
+  },
+  "defaultProfile": "alice",
+  "clients": [
+    {
+      "id": "portal-web",
+      "grant": "authorization_code",
+      "auth": "private_key_jwt",
+      "audience": "portal-web-api",
+      "scopes": [
+        "openid",
+        "profile",
+        "email"
+      ],
+      "secret": null
+    }
+  ],
+  "profiles": [
+    {
+      "key": "alice",
+      "sub": "u-1001",
+      "name": "Alice Martin",
+      "email": "alice@example.test",
+      "loginHint": "u-1001",
+      "code": "code-alice",
+      "claims": {
+        "role": "admin"
+      }
+    }
+  ],
+  "errorCases": []
+}

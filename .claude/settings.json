@@ -8,6 +8,6 @@
     }
   },
   "enabledPlugins": {
-    "plugin1@microcks-agent-skills": true
+    "microcks-oidc@microcks-agent-skills": true
   }
 }

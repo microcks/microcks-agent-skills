@@ -5,9 +5,9 @@
   },
   "plugins": [
     {
-      "name": "plugin1",
-      "source": "./plugins/plugin1",
-      "description": "Plugin 1 placeholder — replace with your plugin description."
+      "name": "microcks-oidc",
+      "source": "./plugins/microcks-oidc",
+      "description": "Mock OpenID Connect provider served by Microcks, with generated keys, signed tokens and dispatch rules."
     }
   ]
 }

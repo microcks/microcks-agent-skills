@@ -28,7 +28,7 @@ if [[ "${3:-}" == "experiment" && "${4:-}" == "run" ]]; then
   mkdir -p "$run_dir/baseline" "$run_dir/skilled"
   for variant in baseline skilled; do
     for trial in 0 1 2 3 4; do
-      printf '%s\n' "{\"type\":\"trial-result\",\"evalFilePath\":\"$PWD/tests/plugin1/skill1/eval.yaml\",\"variant\":\"$variant\",\"stimulus\":\"Creates examples\",\"trialIndex\":$trial,\"status\":\"success\"}"
+      printf '%s\n' "{\"type\":\"trial-result\",\"evalFilePath\":\"$PWD/tests/microcks-oidc/microcks-oidc/eval.yaml\",\"variant\":\"$variant\",\"stimulus\":\"Creates examples\",\"trialIndex\":$trial,\"status\":\"success\"}"
     done > "$run_dir/$variant/results.jsonl"
   done
 elif [[ "${3:-}" == "compare" ]]; then
@@ -50,11 +50,11 @@ FAKE_VALLY_ARGS="$TMP_ROOT/arguments" \
   VALLY_BIN="$FAKE_VALLY" \
   VALLY_PACKAGE="ignored" \
   RESULTS_DIR="$TMP_ROOT/results" \
-  "$ROOT/eng/run-skill-evals.sh" plugin1 skill1 --dry-run
+  "$ROOT/eng/run-skill-evals.sh" microcks-oidc microcks-oidc --dry-run
 
 grep -Fx 'experiment' "$TMP_ROOT/arguments" >/dev/null
 grep -Fx 'run' "$TMP_ROOT/arguments" >/dev/null
-grep -Fx 'tests/plugin1/skill1/eval.yaml' "$TMP_ROOT/arguments" >/dev/null
+grep -Fx 'tests/microcks-oidc/microcks-oidc/eval.yaml' "$TMP_ROOT/arguments" >/dev/null
 grep -Fx -- '--dry-run' "$TMP_ROOT/arguments" >/dev/null
 test -d "$TMP_ROOT/results/_experiment"
 
@@ -63,12 +63,12 @@ FAKE_VALLY_ARGS="$TMP_ROOT/arguments" \
   VALLY_BIN="$FAKE_VALLY" \
   VALLY_PACKAGE="ignored" \
   RESULTS_DIR="$TMP_ROOT/results" \
-  "$ROOT/eng/run-skill-evals.sh" plugin1 skill1
+  "$ROOT/eng/run-skill-evals.sh" microcks-oidc microcks-oidc
 
-test -f "$TMP_ROOT/results/plugin1/skill1/results.json"
+test -f "$TMP_ROOT/results/microcks-oidc/microcks-oidc/results.json"
 node -e '
   const result = require(process.argv[1]);
   if (!result.verdicts?.[0]?.passed) process.exit(1);
-' "$TMP_ROOT/results/plugin1/skill1/results.json"
+' "$TMP_ROOT/results/microcks-oidc/microcks-oidc/results.json"
 
 echo "run-skill-evals wrapper tests passed"

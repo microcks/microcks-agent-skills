@@ -130,8 +130,8 @@ Use at least five trials before making a comparison verdict. Pull-request checks
 The runner compares a skill-free baseline with a run that loads only the target skill. It then uses Vally's position-swapped `compare` command to write a per-skill `results.json` verdict. Start with a dry run, then execute the narrowed evaluation:
 
 ```sh
-./eng/run-skill-evals.sh plugin1 skill1 --dry-run
-./eng/run-skill-evals.sh plugin1 skill1
+./eng/run-skill-evals.sh microcks-oidc microcks-oidc --dry-run
+./eng/run-skill-evals.sh microcks-oidc microcks-oidc
 ```
 
 #### Run only the workflow being changed
@@ -158,7 +158,7 @@ The executor and model are different settings. The current default already asks 
 cp microcks-agent-skills.experiment.yaml "$TMPDIR/microcks-agent-skills.claude.yaml"
 # Edit overrides.model in the copied file to a Claude model available to you.
 EXPERIMENT_FILE="$TMPDIR/microcks-agent-skills.claude.yaml" \
-    ./eng/run-skill-evals.sh plugin1 skill1
+    ./eng/run-skill-evals.sh microcks-oidc microcks-oidc
 ```
 
 Do not commit a local model selection or change `executor: copilot-sdk`. Vally 0.12.0 provides `copilot-sdk` as its built-in agent executor; selecting a Claude model changes the model served by Copilot, not the agent runtime to Claude Code.

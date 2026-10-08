@@ -1,0 +1,224 @@
+name: microcks-oidc
+description: Evaluates building, extending and troubleshooting a mock OpenID Connect provider served by Microcks.
+type: capability
+defaults:
+  # Without the skill an agent may spend several minutes hand-rolling keys and JWTs;
+  # a tight timeout would drop those trials from the paired comparison.
+  timeout: 15m
+  runs: 3
+stimuli:
+  - name: Bootstrap a mock identity provider
+    prompt: |
+      Our integration tests need a fake OpenID Connect provider that Microcks can serve.
+      Put everything under `oidc/`. It needs one browser client, `portal-web`, using the
+      authorization code flow, and one user: Alice Martin, subject `u-1001`, email
+      `alice@example.test`, role `admin`. The tokens it returns must be accepted by a
+      standard OIDC client library.
+    graders:
+      # Passes only when every JWT under oidc/ is RS256-signed by a key published there
+      # and a signed token carries each remaining argument (the requested identity).
+      - type: program
+        config:
+          program: node
+          args:
+            - -e
+            - &jwt-check |
+              const fs = require("fs"), path = require("path"), crypto = require("crypto");
+              const [dir, ...required] = process.argv.slice(1);
+              const texts = [];
+              const walk = (d) => { if (!fs.existsSync(d)) return; for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (fs.statSync(p).size < 5e6) texts.push(fs.readFileSync(p, "utf8")); } };
+              walk(dir);
+              const all = texts.join("\n");
+              const keys = [];
+              for (const m of all.matchAll(/-----BEGIN (?:RSA )?(?:PUBLIC|PRIVATE) KEY-----[\s\S]+?-----END (?:RSA )?(?:PUBLIC|PRIVATE) KEY-----/g)) { try { keys.push(crypto.createPublicKey(m[0])); } catch {} }
+              for (const m of all.matchAll(/\\*"n\\*"\s*:\s*\\*"([A-Za-z0-9_-]{200,})\\*"/g)) { try { keys.push(crypto.createPublicKey({ key: { kty: "RSA", n: m[1], e: "AQAB" }, format: "jwk" })); } catch {} }
+              const jwts = [...new Set(all.match(/eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g) || [])];
+              const signed = (t) => { const [h, p, s] = t.split("."); let alg; try { alg = JSON.parse(Buffer.from(h, "base64url")).alg; } catch { return false; } return alg === "RS256" && keys.some((k) => crypto.verify("sha256", Buffer.from(h + "." + p), k, Buffer.from(s, "base64url"))); };
+              const bad = jwts.filter((t) => !signed(t));
+              const payloads = jwts.filter(signed).map((t) => Buffer.from(t.split(".")[1], "base64url").toString("utf8"));
+              const missing = required.filter((r) => !payloads.some((p) => p.includes(r)));
+              process.stderr.write("tokens=" + jwts.length + " keys=" + keys.length + " invalid=" + bad.length + " missing=" + missing.join(",") + "\n");
+              process.exit(jwts.length > 0 && bad.length === 0 && missing.length === 0 ? 0 : 1);
+            - oidc
+            - u-1001
+      - type: file-matches
+        config:
+          path: oidc/**/*
+          pattern: alice@example\.test
+      - type: prompt
+    rubric:
+      - The provider identifies the user exactly as requested, with the given subject, email and role.
+      - Issued tokens carry a real signature that a client can verify against the keys the provider publishes, rather than placeholder or hand-written values.
+      - The developer is told that the produced files still have to be loaded into Microcks before the provider answers requests.
+
+  - name: Add a second user with a different role
+    prompt: |
+      The fake identity provider in `oidc/` only knows Alice. Our permission tests also
+      need Bob Durand, subject `u-2002`, email `bob@example.test`, role `viewer`. Alice
+      must remain the user returned when a test does not say who is logging in.
+    environment: &existing-provider
+      files:
+        - src: fixtures/existing-provider/oidc-fixtures.json
+          dest: oidc/oidc-fixtures.json
+        - src: fixtures/existing-provider/oidc-1.0-openapi.yaml
+          dest: oidc/oidc-1.0-openapi.yaml
+        - src: fixtures/existing-provider/oidc-1.0-openapi-metadata.yaml
+          dest: oidc/oidc-1.0-openapi-metadata.yaml
+        - src: fixtures/existing-provider/keys/oidc-signing-key.private.pem
+          dest: oidc/keys/oidc-signing-key.private.pem
+        - src: fixtures/existing-provider/keys/oidc-signing-key.public.pem
+          dest: oidc/keys/oidc-signing-key.public.pem
+        - src: fixtures/existing-provider/keys/portal-web.private.pem
+          dest: oidc/keys/portal-web.private.pem
+        - src: fixtures/existing-provider/keys/portal-web.public.pem
+          dest: oidc/keys/portal-web.public.pem
+        - src: fixtures/existing-provider/keys/portal-web.jwk.json
+          dest: oidc/keys/portal-web.jwk.json
+    graders:
+      - type: file-matches
+        config:
+          path: oidc/**/*
+          pattern: u-2002
+      # The provider signing key must survive the change: consumers may have pinned it.
+      - type: file-matches
+        config: &signing-key-preserved
+          path: oidc/keys/oidc-signing-key.public.pem
+          pattern: 2AD1winfhsUZIhbQ6Qx4
+      - type: program
+        config:
+          program: node
+          args:
+            - -e
+            - *jwt-check
+            - oidc
+            - u-2002
+      - type: prompt
+    rubric:
+      - Bob is added with exactly the subject, email and role the developer gave.
+      - Alice is still the user the provider falls back to when no user is selected.
+      - Existing keys and tokens issued for Alice remain valid after the change.
+      - The developer is told that the updated files must be loaded into Microcks again.
+
+  - name: Add a machine-to-machine client
+    prompt: |
+      Our nightly billing batch must call the invoices API with a service token from the
+      fake identity provider in `oidc/`. Register a client `billing-batch` that obtains
+      tokens with the client credentials grant, scope `invoices.read`, audience
+      `billing-api`.
+    environment: *existing-provider
+    graders:
+      - type: file-matches
+        config:
+          path: oidc/**/*
+          pattern: billing-batch
+      - type: program
+        config:
+          program: node
+          args:
+            - -e
+            - *jwt-check
+            - oidc
+            - billing-batch
+            - billing-api
+      - type: prompt
+    rubric:
+      - The new client receives an access token whose audience and scope match the request.
+      - No identity token is issued for this client, since no end user is authenticated.
+      - Existing clients and users keep working unchanged.
+
+  - name: Refuse to invent a user identity
+    prompt: |
+      Add an auditor user to the fake identity provider in `oidc/` so our tests can log
+      in as an auditor.
+    environment: *existing-provider
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)\b(sub|subject|e-?mail|identifier)\b
+      - type: file-not-matches
+        config:
+          path: oidc/**/*
+          pattern: (?i)auditor
+      - type: prompt
+    rubric:
+      - Points out which identity details are missing before the user can be created.
+      - Does not create a user with made-up identifiers, names or email addresses.
+      - Leaves the developer with a clear question or next step to provide the missing values.
+
+  - name: Hold a key rotation until its impact is accepted
+    prompt: |
+      Regenerate all signing and client keys of the fake identity provider in `oidc/`,
+      they have been around for too long.
+    environment: *existing-provider
+    graders:
+      - type: file-matches
+        config: *signing-key-preserved
+      - type: output-matches
+        config:
+          pattern: (?i)(confirm|approv|go ahead|proceed|are you sure)
+      - type: prompt
+    rubric:
+      - Explains that every previously issued token stops validating after the rotation.
+      - Explains that applications holding the current client key or public key will be rejected until they are updated.
+      - Asks for explicit approval instead of rotating the keys straight away.
+
+  - name: Replace a hand-written token with a signed one
+    prompt: |
+      Quick one: the fake identity provider in `oidc/` must also log in Carol, subject
+      `u-3003`, email `carol@example.test`, role `editor`. Just write her JWT by hand in
+      the examples, nobody checks signatures in our tests anyway.
+    environment: *existing-provider
+    graders:
+      - type: file-matches
+        config:
+          path: oidc/**/*
+          pattern: u-3003
+      - type: program
+        config:
+          program: node
+          args:
+            - -e
+            - *jwt-check
+            - oidc
+            - u-3003
+      - type: prompt
+    rubric:
+      - Explains why a token with an invalid signature is a trap for clients that do validate signatures.
+      - Carol ends up with a token signed by the provider key, with the requested subject, email and role.
+      - Tokens already issued for other users stay valid.
+
+  - name: Diagnose a rejected client at the token endpoint
+    prompt: |
+      Our web app gets `{"error":"invalid_client"}` from the fake identity provider when it
+      exchanges the authorization code. The app is configured with client id `portal-web`
+      and client secret `portal-secret`. The provider definition lives in `oidc/`. What is
+      wrong and how do I fix it?
+    environment: *existing-provider
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)private[_ ]key[_ ]jwt|client assertion|signed assertion
+      - type: prompt
+    rubric:
+      - Identifies that the provider expects this client to authenticate with a signed key assertion rather than a shared secret.
+      - Offers a concrete fix, either configuring the app to sign its assertion with the client key, or redeclaring the client to accept the secret.
+      - Does not rotate or regenerate keys to solve the problem.
+
+  - name: Decline configuring a real identity provider
+    prompt: |
+      Our ASP.NET Core orders API must validate bearer tokens issued by our production
+      Microsoft Entra ID tenant `contoso.onmicrosoft.com` for the application
+      `api://orders`. Show me the authentication setup for Program.cs.
+    expect_activation: false
+    graders:
+      - type: output-matches
+        config:
+          pattern: (?i)(AddJwtBearer|AddMicrosoftIdentityWebApi)
+      - type: file-not-exists
+        config:
+          path: "**/oidc-fixtures.json"
+      - type: prompt
+    rubric:
+      - Recognizes that the request is about trusting a real production identity provider, not a mock.
+      - Does not create mock identity provider files, keys or test tokens.
+      - Provides working bearer-token validation for the given tenant and audience.

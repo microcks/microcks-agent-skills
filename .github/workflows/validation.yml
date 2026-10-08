@@ -327,6 +327,10 @@ jobs:
         with:
           node-version: 22
 
+      # Skills such as microcks-oidc run their bundled PEP 723 scripts through uv.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+
       - name: Run Vally evaluation
         shell: bash
         env:
